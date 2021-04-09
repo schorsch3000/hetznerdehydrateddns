@@ -3,6 +3,7 @@ mkdir -p /etc/dehydrated/conf.d
 touch /etc/dehydrated/domains.txt
 echo "nameserver 8.8.8.8" >/etc/resolv.conf
 echo "nameserver 1.1.1.1" >/etc/resolv.conf
+test -f /etc/dehydrated/config || cp -rp /etc/dehydrated.orig/config /etc/dehydrated
 test -f /etc/dehydrated/conf.d/hooks.sh || echo 'HOOK="/usr/local/bin/hooks.php"' > /etc/dehydrated/conf.d/hooks.sh
 test -f /etc/dehydrated/conf.d/challengetype.sh || echo 'CHALLENGETYPE="dns-01"' > /etc/dehydrated/conf.d/challengetype.sh
 test -f /etc/dehydrated/conf.d/hetzner_api_token.sh || echo 'export HETZNER_API_TOKEN=MY_API_TOKEN' > /etc/dehydrated/conf.d/hetzner_api_token.sh
