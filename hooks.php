@@ -69,6 +69,12 @@ function deploy_challenge($domain, $tokenFile, $tokenValue)
 
     } while ($maxWait > time());
     echo "\n";
+    echo " | + Waiting additional 15 sec";
+    for($i=0; $i<15; $i++){
+        sleep(1);
+        echo ".";
+    }
+    echo "\n;"
 }
 
 function clean_challenge($domain, $tokenFile, $tokenValue)
