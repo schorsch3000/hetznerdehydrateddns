@@ -74,7 +74,7 @@ function deploy_challenge($domain, $tokenFile, $tokenValue)
         sleep(1);
         echo ".";
     }
-    echo "\n;"
+    echo "\n";
 }
 
 function clean_challenge($domain, $tokenFile, $tokenValue)
