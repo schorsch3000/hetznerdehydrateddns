@@ -10,9 +10,10 @@ test -f /etc/dehydrated/conf.d/challengetype.sh || echo 'CHALLENGETYPE="dns-01"'
 test -f /etc/dehydrated/conf.d/hcloud_token.sh || echo 'export HCLOUD_TOKEN=MY_API_TOKEN' > /etc/dehydrated/conf.d/hcloud_token.sh
 test -f /etc/dehydrated/conf.d/ca.sh || echo -e 'CA="https://acme-staging-v02.api.letsencrypt.org/directory"\n# do not delete this file, deleting the line above is fine.' > /etc/dehydrated/conf.d/ca.sh
 
-
+(
+. /etc/dehydrated/conf.d/hcloud_token.sh
 hcloud context create --token-from-env default
-
+)
 
 /usr/bin/dehydrated --register --accept-terms
 /usr/bin/dehydrated --cron
