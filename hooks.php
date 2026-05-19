@@ -51,10 +51,14 @@ function bundle()
 
 function deploy_challenge($domain, $tokenFile, $tokenValue)
 {
-    $zoneId = getZoneId($domain, $d);
+    $zoneId = getZoneId($domain,$d);
+    if(!$zoneId){
+        echo "No zone found for $domain\n";
+        exit(1);
+    }
     echo " +-+ creating TXT record for $domain";
 
-    createRecord("_acme-challenge." . substr($domain, 0, -1 - strlen($d)), 60, 'TXT', $tokenValue, $zoneId);
+    createRecord("_acme-challenge." . substr($domain, 0, -1 - strlen($d)),  'TXT', $tokenValue, $zoneId);
     echo " Done \n | + waiting for DNS to propagate";
     $maxWait = time() + 60 * 5;
     do {
@@ -69,12 +73,13 @@ function deploy_challenge($domain, $tokenFile, $tokenValue)
 
     } while ($maxWait > time());
     echo "\n";
-    echo " | + Waiting additional 15 sec";
-    for($i=0; $i<15; $i++){
+    echo " | + Waiting additional 3 sec";
+    for($i=0; $i<3; $i++){
         sleep(1);
         echo ".";
     }
     echo "\n";
+
 }
 
 function clean_challenge($domain, $tokenFile, $tokenValue)
@@ -84,93 +89,44 @@ function clean_challenge($domain, $tokenFile, $tokenValue)
 
 }
 
-function getZoneId($domain, &$d = null)
+function getZoneId($domain,&$targetDomain=null)
 {
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, 'https://dns.hetzner.com/api/v1/zones');
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Auth-API-Token: ' . $_SERVER['HETZNER_API_TOKEN'],
-    ]);
-    $response = curl_exec($ch);
-    if (!$response) {
-        die('Error: "' . curl_error($ch) . '" - Code: ' . curl_errno($ch));
-    }
-    curl_close($ch);
-    $data = json_decode($response);
-
-    foreach ($data->zones as $zone) {
-        if ($zone->is_secondary_dns) continue;
-        if (strpos($domain, $zone->name) !== false) {
-            $d = $zone->name;
+    $zones=hcloud("zone","list","--output","json");
+    $zones=json_decode(implode("\n",$zones));
+    usort($zones,function($a,$b){
+        return strlen($b->name)-strlen($a->name);
+    });
+    foreach($zones as $zone){
+        if(str_ends_with($domain,$zone->name)){
+            $targetDomain=$zone->name;
             return $zone->id;
         }
     }
-    die("Can'T find zone for $domain\n");
+    return null;
 }
 
-function createRecord($name, $ttl, $type, $value, $zone_id)
+function createRecord($name, $type, $value, $zone_id)
 {
     if ($name === "_acme-challenge.") $name = "_acme-challenge";
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, 'https://dns.hetzner.com/api/v1/records');
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json',
-        'Auth-API-Token: ' . $_SERVER['HETZNER_API_TOKEN'],
-    ]);
-    $json_array = [
-        'value' => $value,
-        'ttl' => $ttl,
-        'type' => $type,
-        'name' => $name,
-        'zone_id' => $zone_id
-    ];
-    $body = json_encode($json_array);
-    curl_setopt($ch, CURLOPT_POST, 1);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
-    $response = curl_exec($ch);
-    if (!$response) {
-        die('Error: "' . curl_error($ch) . '" - Code: ' . curl_errno($ch));
-    }
-    curl_close($ch);
+    hcloud("zone","add-records","--record",'"'.$value.'"',$zone_id,$name,$type);
 }
 
 function deleteRecord($domain, $zoneId, $tokenValue)
 {
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, 'https://dns.hetzner.com/api/v1/records?zone_id=' . $zoneId);
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Auth-API-Token: ' . $_SERVER['HETZNER_API_TOKEN'],
-    ]);
-    $response = curl_exec($ch);
-    if (!$response) {
-        die('Error: "' . curl_error($ch) . '" - Code: ' . curl_errno($ch));
-    }
-    $data = json_decode($response);
-    curl_close($ch);
-    foreach ($data->records as $record) {
-        if ($record->type !== 'TXT') continue;
-        if ($record->value !== $tokenValue) continue;
-        if (0 !== strpos($record->name, '_acme-challenge')) continue;
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, 'https://dns.hetzner.com/api/v1/records/' . $record->id);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Auth-API-Token: ' . $_SERVER['HETZNER_API_TOKEN'],
-        ]);
-        $response = curl_exec($ch);
-        if (!$response) {
-            die('Error: "' . curl_error($ch) . '" - Code: ' . curl_errno($ch));
-        }
-        curl_close($ch);
-    }
+    hcloud("zone","remove-records","--record",'"'.$tokenValue.'"',$zoneId,$domain,'TXT');
 }
 
+
+function hcloud(...$args){
+    array_unshift($args,'hcloud');
+    $args=array_map('escapeshellarg',$args);
+    $cmd=implode(' ',$args);
+    exec($cmd,$out,$ret);
+    if($ret!==0){
+        return false;
+    }
+    return $out;
+
+}
 
 
