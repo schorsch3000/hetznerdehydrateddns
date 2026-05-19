@@ -108,7 +108,7 @@ function getZoneId($domain,&$targetDomain=null)
 function createRecord($name, $type, $value, $zone_id)
 {
     if ($name === "_acme-challenge.") $name = "_acme-challenge";
-    hcloud("zone","set-records","--record",'"'.$value.'"',$zone_id,$name,$type);
+    hcloud("zone","add-records","--record",'"'.$value.'"',$zone_id,$name,$type);
 }
 
 function deleteRecord($domain, $zoneId, $tokenValue)
